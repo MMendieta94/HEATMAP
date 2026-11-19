@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capacidad por Pasillo · TIJ2</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#1d2433; --muted:#6b7385; --line:#e3e7ee;
+    --brand:#1f3a5f; --brand2:#2f6db5; --ok:#1e9e6a; --warn:#e0a100; --bad:#d64545;
+    --okbg:#e6f6ef; --warnbg:#fff5d9; --badbg:#fde8e8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--brand);color:#fff;padding:14px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+  header h1{font-size:19px;margin:0;font-weight:600}
+  header .sub{font-size:12px;opacity:.75}
+  nav{display:flex;gap:6px;margin-left:auto}
+  nav button{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px}
+  nav button.active{background:#fff;color:var(--brand);font-weight:600}
+  main{padding:20px 24px;max-width:1200px;margin:0 auto}
+  .view{display:none}.view.active{display:block}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .l{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .kpi .v{font-size:24px;font-weight:700;margin-top:4px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .toolbar .info{font-size:12px;color:var(--muted)}
+  .toolbar input{padding:7px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:160px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  thead th{background:#dbeaf7;color:var(--ink);font-weight:700;padding:9px 10px;text-align:center;position:sticky;top:0;border-bottom:2px solid #b9d3ec}
+  tbody td{padding:7px 10px;text-align:center;border-bottom:1px solid var(--line)}
+  tbody tr.click{cursor:pointer}
+  tbody tr.click:hover{background:#eef4fb}
+  tfoot td{padding:9px 10px;text-align:center;font-weight:700;border-top:2px solid var(--line);background:#fafbfc}
+  .pct{display:flex;align-items:center;gap:8px;justify-content:center}
+  .bar{flex:0 0 120px;height:8px;background:#edf0f4;border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%}
+  .tag{display:inline-block;min-width:54px;padding:2px 8px;border-radius:12px;font-weight:600;font-size:13px}
+  .ok{background:var(--okbg);color:var(--ok)} .warn{background:var(--warnbg);color:#9a6c00} .bad{background:var(--badbg);color:var(--bad)}
+  .na{color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:48px 12px}
+  .empty button{margin-top:12px}
+  .btn{background:var(--brand2);color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px}
+  .btn.sec{background:#fff;color:var(--brand2);border:1px solid var(--brand2)}
+  .uploads{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+  .drop{border:2px dashed #b9c4d4;border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;transition:.15s;background:#fafcff}
+  .drop.over{border-color:var(--brand2);background:#eef4fb}
+  .drop b{display:block;font-size:15px;margin-bottom:4px}
+  .drop small{color:var(--muted)}
+  .up h3{margin:0 0 4px;font-size:16px}
+  .up p.d{margin:0 0 12px;font-size:12.5px;color:var(--muted)}
+  .status{margin-top:12px;font-size:13px;min-height:20px}
+  .status.err{color:var(--bad)} .status.okm{color:var(--ok)}
+  .prog{height:6px;background:#edf0f4;border-radius:3px;overflow:hidden;margin-top:10px;display:none}
+  .prog i{display:block;height:100%;width:0;background:var(--brand2);transition:width .2s}
+  .meta{font-size:12px;color:var(--muted);margin-top:6px}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-left:auto}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(20,28,40,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:10}
+  .ov.show{display:flex}
+  .modal{background:#fff;border-radius:12px;width:min(760px,100%);max-height:calc(100vh - 80px);display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .mh h2{margin:0;font-size:18px}
+  .mh .x{margin-left:auto;background:none;border:none;font-size:24px;cursor:pointer;color:var(--muted);line-height:1}
+  .mk{display:flex;gap:18px;padding:10px 20px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .mk b{color:var(--ink)}
+  .mb{overflow:auto;padding:0 20px 16px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px}
+  .chk{display:flex;gap:10px;flex-wrap:wrap}
+  .chk label{display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--line);border-radius:20px;cursor:pointer;font-size:13px;user-select:none;background:#fff}
+  .chk label:has(input:checked){border-color:#9fb3cc;background:#f3f7fc}
+  .chk label:not(:has(input:checked)){opacity:.55}
+  .chk input{margin:0;accent-color:var(--brand2)}
+  .chk .sq{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .chk .n{color:var(--muted);font-size:12px}
+  .toolbar input[type=checkbox]{width:auto;padding:0}
+  #v-operativa .chk label{font-size:16px;padding:8px 16px}
+  #v-operativa .info{font-size:14px}
+  .ogrid{display:grid;grid-template-columns:1fr 3fr;gap:16px;align-items:start}
+  .opanel{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .opanel h2{margin:0;padding:12px 16px;background:var(--brand);color:#fff;font-size:28px;letter-spacing:2px;display:flex;align-items:baseline;gap:12px}
+  .opanel h2 small{font-size:14px;font-weight:400;opacity:.8;letter-spacing:0;margin-left:auto}
+  .ohead{display:flex;padding:8px 16px;background:#dbeaf7;font-weight:700;font-size:15px;border-bottom:2px solid #b9d3ec}
+  .ohead span:first-child{width:120px;text-align:center}
+  .olist{display:grid;grid-auto-flow:column;column-gap:24px;padding:4px 16px 10px}
+  .orow{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .orow:hover{background:#eef4fb}
+  .orow .pn{width:108px;text-align:center;font-size:32px;font-weight:800;letter-spacing:1px;flex:0 0 auto}
+  .orow .pct{flex:1;justify-content:flex-start;gap:12px}
+  .orow .bar{flex:1 1 auto;height:22px;border-radius:11px}
+  .orow .tag{min-width:88px;font-size:23px;padding:3px 10px;border-radius:18px}
+  .otitle{margin:0 0 14px;text-align:center;font-size:46px;font-weight:800;color:var(--ink);letter-spacing:.5px;line-height:1.1}
+  .oempty{padding:24px;text-align:center;color:var(--muted)}
+  body.wide main{max-width:none}
+  @media (max-width:1100px){.ogrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Capacidad por Pasillo</h1>
+    <div class="sub">TIJ2 · LOCATIONS vs AgingLocationsReport</div>
+  </div>
+  <span id="ghBadge" style="font-size:12px;opacity:.8;margin-left:auto"></span>
+  <nav style="margin-left:0">
+    <button data-view="resumen" class="active">Resumen</button>
+    <button data-view="operativa">Operativa</button>
+    <button data-view="carga">Carga de archivos</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ===== RESUMEN ===== -->
+  <section id="v-resumen" class="view active">
+    <div id="resumenBody"></div>
+  </section>
+
+  <!-- ===== OPERATIVA ===== -->
+  <section id="v-operativa" class="view">
+    <div id="operBody"></div>
+  </section>
+
+  <!-- ===== CARGA ===== -->
+  <section id="v-carga" class="view">
+    <div class="card up" style="margin-bottom:16px">
+      <h3>Publicar en GitHub</h3>
+      <p class="d">Al cargar los reportes aquí, la página guarda un resumen (solo capacidad y LPNs por pasillo/bahía) en el repositorio
+        <b id="ghRepo"></b>. La TV y cualquier otra computadora lo leen solas cada 10 minutos.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input type="password" id="ghTok" placeholder="Token de GitHub (solo en esta computadora)" autocomplete="off" style="flex:1;min-width:260px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;font-size:13px">
+        <button class="btn" id="btnTokSave">Guardar token</button>
+        <button class="btn sec" id="btnTokDel">Quitar token</button>
+        <button class="btn sec" id="btnPub">Publicar ahora</button>
+        <button class="btn sec" id="btnGh">Leer de GitHub</button>
+      </div>
+      <div class="meta" id="tokInfo"></div>
+      <div class="status" id="ghSt"></div>
+    </div>
+    <div class="uploads">
+      <div class="card up">
+        <h3>1 · LOCATIONS</h3>
+        <p class="d">Pasillo, Bahía y Capacidad. El nombre del archivo debe comenzar con <b>LOCATIONS</b>.</p>
+        <div class="drop" id="dropLoc"><b>Arrastra o haz clic para cargar</b><small>.xlsx</small></div>
+        <input type="file" id="fileLoc" accept=".xlsx,.xlsm" hidden>
+        <div class="prog" id="progLoc"><i></i></div>
+        <div class="status" id="stLoc"></div>
+        <div class="meta" id="metaLoc"></div>
+      </div>
+      <div class="card up">
+        <h3>2 · AgingLocationsReport</h3>
+        <p class="d">Current Location y Quantity. El nombre del archivo debe comenzar con <b>AgingLocationsReport</b>.</p>
+        <div class="drop" id="dropAg"><b>Arrastra o haz clic para cargar</b><small>.xlsx · archivos grandes se leen por partes</small></div>
+        <input type="file" id="fileAg" accept=".xlsx,.xlsm" hidden>
+        <div class="prog" id="progAg"><i></i></div>
+        <div class="status" id="stAg"></div>
+        <div class="meta" id="metaAg"></div>
+      </div>
+    </div>
+    <p class="note">Los datos procesados se guardan en este navegador: para actualizar solo necesitas volver a cargar el archivo que cambió.
+      <button class="btn sec" id="btnClear" style="margin-left:8px;padding:4px 10px;font-size:12px">Borrar datos guardados</button></p>
+  </section>
+</main>
+
+<div class="ov" id="ov">
+  <div class="modal">
+    <div class="mh"><h2 id="mTitle"></h2><span class="legend"></span><button class="x" id="mClose" title="Cerrar">×</button></div>
+    <div class="mk" id="mKpis"></div>
+    <div class="mb"><table id="mTable"></table><div class="note" id="mNote"></div></div>
+  </div>
+</div>
+
+<!-- ===== Lectura de XLSX por streaming (sin librerías) ===== -->
+<script id="core">
+const XL = (() => {
+  const td = new TextDecoder();
+  const u16 = (b,o)=>b[o]|(b[o+1]<<8);
+  const u32 = (b,o)=>(b[o]|(b[o+1]<<8)|(b[o+2]<<16)|(b[o+3]<<24))>>>0;
+  const u64 = (b,o)=>u32(b,o)+u32(b,o+4)*4294967296;
+  async function bytes(file,a,b){return new Uint8Array(await file.slice(a,b).arrayBuffer());}
+
+  // Lee el directorio central del zip
+  async function openZip(file){
+    const tailLen=Math.min(file.size,65557+20);
+    const tail=await bytes(file,file.size-tailLen,file.size);
+    let e=-1;for(let i=tail.length-22;i>=0;i--){if(u32(tail,i)===0x06054b50){e=i;break;}}
+    if(e<0) throw new Error("El archivo no es un .xlsx válido");
+    let cdSize=u32(tail,e+12), cdOff=u32(tail,e+16), n=u16(tail,e+10);
+    if(cdOff===0xFFFFFFFF||n===0xFFFF){ // ZIP64
+      const l=e-20; if(l>=0&&u32(tail,l)===0x07064b50){
+        const z64off=u64(tail,l+8); const z=await bytes(file,z64off,z64off+56);
+        n=u64(z,32); cdSize=u64(z,40); cdOff=u64(z,48);
+      }
+    }
+    const cd=await bytes(file,cdOff,cdOff+cdSize);
+    const entries={};let p=0;
+    for(let k=0;k<n&&u32(cd,p)===0x02014b50;k++){
+      const method=u16(cd,p+10);let csize=u32(cd,p+20),usize=u32(cd,p+24);
+      const nl=u16(cd,p+28),xl=u16(cd,p+30),cl=u16(cd,p+32);let off=u32(cd,p+42);
+      const name=td.decode(cd.subarray(p+46,p+46+nl));
+      let x=p+46+nl;const xe=x+xl;
+      while(x+4<=xe){const id=u16(cd,x),sz=u16(cd,x+2);if(id===1){let q=x+4;
+        if(usize===0xFFFFFFFF){usize=u64(cd,q);q+=8;} if(csize===0xFFFFFFFF){csize=u64(cd,q);q+=8;} if(off===0xFFFFFFFF){off=u64(cd,q);}}
+        x+=4+sz;}
+      entries[name.replace(/\\/g,"/")]={method,csize,usize,off};
+      p+=46+nl+xl+cl;
+    }
+    return {file,entries};
+  }
+  async function entryStream(zip,name,onBytes){
+    const en=zip.entries[name]; if(!en) return null;
+    const h=await bytes(zip.file,en.off,en.off+30);
+    const start=en.off+30+u16(h,26)+u16(h,28);
+    let raw=zip.file.slice(start,start+en.csize).stream();
+    if(onBytes){let done=0;raw=raw.pipeThrough(new TransformStream({transform(c,ctl){done+=c.length;onBytes(done/en.csize);ctl.enqueue(c);}}));}
+    if(en.method===8) raw=raw.pipeThrough(new DecompressionStream("deflate-raw"));
+    else if(en.method!==0) throw new Error("Compresión no soportada");
+    return raw.pipeThrough(new TextDecoderStream());
+  }
+  async function entryText(zip,name){
+    const s=await entryStream(zip,name); if(!s) return null;
+    let out="";const r=s.getReader();for(;;){const {done,value}=await r.read();if(done)break;out+=value;}return out;
+  }
+  const ent=s=>s.indexOf("&")<0?s:s.replace(/&(lt|gt|amp|quot|apos|#x?[0-9a-fA-F]+);/g,(m,c)=>
+      c==="lt"?"<":c==="gt"?">":c==="amp"?"&":c==="quot"?'"':c==="apos"?"'":
+      String.fromCodePoint(c[1]==="x"||c[1]==="X"?parseInt(c.slice(2),16):parseInt(c.slice(1),10)));
+  const textOf=x=>{let s="";const re=/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g;let m;while((m=re.exec(x)))s+=m[1];return ent(s);};
+  const colIdx=r=>{let n=0;for(let i=0;i<r.length;i++){const c=r.charCodeAt(i);if(c<65)break;n=n*26+(c-64);}return n-1;};
+
+  async function sheetPath(zip,prefer){
+    const wb=await entryText(zip,"xl/workbook.xml");const rels=await entryText(zip,"xl/_rels/workbook.xml.rels")||"";
+    const sheets=[...wb.matchAll(/<sheet\b[^>]*>/g)].map(m=>({name:ent((m[0].match(/\bname="([^"]*)"/)||[])[1]||""),rid:(m[0].match(/\br:id="([^"]*)"/)||[])[1]}));
+    let s=sheets.find(x=>prefer&&x.name.toLowerCase()===prefer.toLowerCase())||sheets[0];
+    if(!s) throw new Error("El libro no tiene hojas");
+    const rel=[...rels.matchAll(/<Relationship\b[^>]*>/g)].map(m=>m[0]).find(r=>r.includes(`Id="${s.rid}"`));
+    let t=rel&&(rel.match(/Target="([^"]*)"/)||[])[1];
+    if(!t) return "xl/worksheets/sheet1.xml";
+    t=t.replace(/^\//,""); return t.startsWith("xl/")?t:"xl/"+t;
+  }
+  async function sharedStrings(zip){
+    const x=await entryText(zip,"xl/sharedStrings.xml"); if(!x) return [];
+    const out=[];const re=/<si>([\s\S]*?)<\/si>|<si\/>/g;let m;while((m=re.exec(x)))out.push(m[1]?textOf(m[1]):"");return out;
+  }
+  // Recorre filas de una hoja: onRow(arrayDeCeldas, numFila)
+  async function eachRow(file,{prefer,onRow,onProgress}){
+    const zip=await openZip(file);
+    const path=await sheetPath(zip,prefer);
+    const sst=await sharedStrings(zip);
+    const st=await entryStream(zip,path,onProgress);
+    if(!st) throw new Error("No se encontró la hoja de datos");
+    const cellRe=/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    let buf="",rowN=0;
+    const parseRow=row=>{
+      const cells=[];let m,seq=0;cellRe.lastIndex=0;
+      while((m=cellRe.exec(row))){
+        const a=m[1],body=m[2];const rm=a.match(/\br="([A-Z]+)/);const ci=rm?colIdx(rm[1]):seq;seq=ci+1;
+        if(body==null)continue;
+        const tm=a.match(/\bt="([^"]*)"/);const t=tm?tm[1]:"";
+        let v;
+        if(t==="inlineStr") v=textOf(body);
+        else{const vm=body.match(/<v>([\s\S]*?)<\/v>/);if(!vm)continue;v=vm[1];
+          if(t==="s") v=sst[+v]??""; else if(t==="str"||t==="e") v=ent(v); else if(t!=="b"&&t!=="str") v=v===""?"":(isNaN(+v)?ent(v):+v);}
+        cells[ci]=v;
+      }
+      return cells;
+    };
+    const rd=st.getReader();
+    for(;;){
+      const {done,value}=await rd.read();
+      if(value) buf+=value;
+      let end=buf.lastIndexOf("</row>");
+      if(end>=0){
+        const chunk=buf.slice(0,end+6);buf=buf.slice(end+6);
+        let i=0;for(;;){const s=chunk.indexOf("<row",i);if(s<0)break;const e=chunk.indexOf("</row>",s);if(e<0)break;
+          rowN++;if(onRow(parseRow(chunk.slice(s,e)),rowN)===false){rd.cancel();return;} i=e+6;}
+      }
+      if(done)break;
+    }
+  }
+  const norm=s=>String(s??"").normalize("NFD").replace(/[̀-ͯ]/g,"").trim().toLowerCase();
+  const findCol=(hdr,names)=>{const h=hdr.map(norm);for(const n of names){const i=h.indexOf(norm(n));if(i>=0)return i;}return -1;};
+  const pad2=b=>{const s=String(b??"").trim();return /^\d$/.test(s)?"0"+s:s;};
+
+  // LOCATIONS -> {A00:{cap, bahias:{'07':354}}}
+  async function procLocations(file,onProgress){
+    let ip=-1,ib=-1,ic=-1,il=-1;const res={};let rows=0;
+    await eachRow(file,{onProgress,onRow:(c,n)=>{
+      if(ip<0&&ic<0){ip=findCol(c,["Pasillo"]);ib=findCol(c,["Bahia","Bahía"]);ic=findCol(c,["Capacidad"]);il=findCol(c,["Location","Ubicacion"]);
+        if(ip<0&&il<0||ic<0) throw new Error('No se encontraron las columnas "Pasillo" y "Capacidad" en LOCATIONS');return;}
+      const loc=il>=0?String(c[il]??"").trim():"";
+      const p=String((ip>=0?c[ip]:"")||loc.slice(0,3)).trim().toUpperCase();
+      if(!p)return;
+      const b=pad2((ib>=0?c[ib]:"")||loc.substr(4,2));
+      const cap=+c[ic]||0;rows++;
+      const o=res[p]||(res[p]={cap:0,bahias:{}});o.cap+=cap;if(b)o.bahias[b]=(o.bahias[b]||0)+cap;
+    }});
+    if(!rows) throw new Error("LOCATIONS no contiene filas de datos");
+    return {pasillos:res,rows};
+  }
+  // Aging -> {A00:{q, bahias:{'10':2259}}}
+  async function procAging(file,onProgress){
+    let iq=-1,il=-1,hdr=false;const res={};let rows=0;
+    await eachRow(file,{prefer:"AgingLocationsReport",onProgress,onRow:(c)=>{
+      if(!hdr){iq=findCol(c,["Quantity"]);il=findCol(c,["Current Location"]);hdr=true;
+        if(iq<0||il<0) throw new Error('No se encontraron las columnas "Current Location" y "Quantity"');return;}
+      const loc=String(c[il]??"").trim();if(!loc)return;
+      const p=loc.slice(0,3).toUpperCase(),b=loc.substr(4,2).toUpperCase();const q=+c[iq]||0;rows++;
+      const o=res[p]||(res[p]={q:0,bahias:{}});o.q+=q;o.bahias[b]=(o.bahias[b]||0)+q;
+    }});
+    if(!rows) throw new Error("El AgingLocationsReport no contiene filas de datos");
+    return {pasillos:res,rows};
+  }
+  return {procLocations,procAging};
+})();
+</script>
+
+<!-- ===== Interfaz ===== -->
+<script>
+const fmt=n=>Math.round(n).toLocaleString("en-US");
+const pctTxt=p=>p==null?"—":Math.round(p*100)+"%";
+const lvl=p=>{if(p==null)return "na";const r=Math.round(p*100);return r<70?"ok":r<=80?"warn":"bad";};
+const COL={ok:"var(--ok)",warn:"var(--warn)",bad:"var(--bad)",na:"#c9ced8"};
+const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+let LOC=store.get("cpp_loc"), AG=store.get("cpp_ag");
+
+// ---- navegación
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));
+function showView(v){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
+  document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id==="v-"+v));document.body.classList.toggle("wide",v==="operativa");if(v==="resumen")render();if(v==="operativa")renderOper();}
+
+// ---- carga
+const KINDS={
+  loc:{drop:"dropLoc",inp:"fileLoc",st:"stLoc",pr:"progLoc",prefix:"LOCATIONS",fn:XL.procLocations,key:"cpp_loc"},
+  ag:{drop:"dropAg",inp:"fileAg",st:"stAg",pr:"progAg",prefix:"AgingLocationsReport",fn:XL.procAging,key:"cpp_ag"}};
+const validName=(kind,name)=>name.toLowerCase().startsWith(KINDS[kind].prefix.toLowerCase())&&/\.xls[xm]$/i.test(name);
+// Procesa un archivo (cargado a mano o descargado de GitHub)
+let processFile=async function(kind,file,extra){
+  const cfg=KINDS[kind],st=document.getElementById(cfg.st),pr=document.getElementById(cfg.pr),bar=pr.firstElementChild;
+  st.className="status";
+  if(!validName(kind,file.name)){st.className="status err";st.textContent=`Archivo no válido: "${file.name}". El nombre debe comenzar con "${cfg.prefix}" y ser .xlsx`;return false;}
+  if(!window.DecompressionStream){st.className="status err";st.textContent="Este navegador no soporta la lectura. Usa Chrome o Edge actualizados.";return false;}
+  pr.style.display="block";bar.style.width="0";
+  st.textContent="Procesando "+file.name+"…";const t0=performance.now();
+  try{
+    const r=await cfg.fn(file,f=>{bar.style.width=(f*100).toFixed(1)+"%";});
+    const data={file:file.name,at:new Date().toISOString(),rows:r.rows,pasillos:r.pasillos,src:"Manual",...(extra||{})};
+    if(kind==="loc")LOC=data;else AG=data;store.set(cfg.key,data);
+    bar.style.width="100%";st.className="status okm";
+    st.textContent=`✓ ${fmt(r.rows)} filas procesadas en ${((performance.now()-t0)/1000).toFixed(1)} s`;
+    meta();return true;
+  }catch(e){console.error(e);st.className="status err";st.textContent="Error: "+e.message;return false;}
+  finally{setTimeout(()=>pr.style.display="none",800);}
+}
+function setup(kind){
+  const cfg=KINDS[kind];
+  const d=document.getElementById(cfg.drop),inp=document.getElementById(cfg.inp);
+  d.onclick=()=>inp.click();
+  d.ondragover=e=>{e.preventDefault();d.classList.add("over");};d.ondragleave=()=>d.classList.remove("over");
+  d.ondrop=e=>{e.preventDefault();d.classList.remove("over");if(e.dataTransfer.files[0])processFile(kind,e.dataTransfer.files[0]);};
+  inp.onchange=()=>{if(inp.files[0])processFile(kind,inp.files[0]);inp.value="";};
+}
+setup("loc");setup("ag");
+function meta(){
+  const m=(d)=>d?`Último: <b>${d.file}</b> · ${d.src==="GitHub"?"desde GitHub · ":""}${new Date(d.at).toLocaleString("es-MX")}`:"Sin datos cargados";
+  document.getElementById("metaLoc").innerHTML=m(LOC);document.getElementById("metaAg").innerHTML=m(AG);
+}
+document.getElementById("btnClear").onclick=()=>{store.del("cpp_loc");store.del("cpp_ag");LOC=AG=null;meta();
+  ["stLoc","stAg"].forEach(i=>document.getElementById(i).textContent="");};
+meta();
+
+// ---- GitHub: publica y lee el resumen (data/resumen.json) del repositorio
+// Si la página está publicada en GitHub Pages (usuario.github.io/repositorio) se detecta sola.
+// Para usarla en otro lado, llena owner y repo aquí, o abre la página con ?gh=usuario/repositorio
+const GH=(()=>{
+  const c={owner:"",repo:"",branch:"main",path:"data/resumen.json",refreshMin:10};
+  const q=new URLSearchParams(location.search).get("gh");
+  if(q&&q.includes("/")){[c.owner,c.repo]=q.split("/");}
+  else if(!c.owner&&location.hostname.endsWith(".github.io")){
+    c.owner=location.hostname.split(".")[0];
+    const seg=location.pathname.split("/").filter(Boolean)[0];
+    c.repo=seg&&!seg.includes(".")?seg:location.hostname;
+  }
+  return c;
+})();
+const API=()=>`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${GH.path}`;
+const getTok=()=>{try{return localStorage.getItem("cpp_tok")||"";}catch(e){return "";}};
+let ghBusy=false,pubTimer=null;
+const hhmm=d=>new Date(d).toLocaleString("es-MX",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+function ghMsg(t,cls){const e=document.getElementById("ghSt");e.className="status "+(cls||"");e.textContent=t;}
+function badge(){const b=document.getElementById("ghBadge");if(!b)return;
+  const t=[LOC,AG].filter(Boolean).map(d=>d.at).sort().pop();b.textContent=t?"Datos al "+hhmm(t):"";}
+function tokInfo(){document.getElementById("tokInfo").textContent=getTok()?"✓ Token guardado en esta computadora: al cargar reportes se publican solos.":"Sin token: los reportes que cargues aquí solo se verán en esta computadora.";}
+// solo pasillos A00–A99 para que el archivo sea pequeño
+const slim=d=>d&&{file:d.file,at:d.at,rows:d.rows,pasillos:Object.fromEntries(Object.entries(d.pasillos).filter(([p])=>/^A\d{2}$/.test(p)))};
+
+async function ghRead(){
+  if(!GH.owner)return;
+  if(ghBusy)return;ghBusy=true;
+  try{
+    let j=null;
+    const r=await fetch(API()+`?ref=${GH.branch}&t=${Date.now()}`,{headers:{Accept:"application/vnd.github.raw+json"},cache:"no-store"});
+    if(r.ok)j=await r.json();
+    else if(r.status!==404){const r2=await fetch(GH.path+"?t="+Date.now(),{cache:"no-store"});if(r2.ok)j=await r2.json();}
+    if(!j){ghMsg("Aún no hay datos publicados en GitHub. Carga los reportes con el token guardado.");return;}
+    let changed=false;
+    if(j.loc&&(!LOC||j.loc.at>LOC.at)){LOC={...j.loc,src:"GitHub"};store.set("cpp_loc",LOC);changed=true;}
+    if(j.ag&&(!AG||j.ag.at>AG.at)){AG={...j.ag,src:"GitHub"};store.set("cpp_ag",AG);changed=true;}
+    ghMsg(`GitHub revisado ${hhmm(new Date())} · publicado ${hhmm(j.pub)}`+(changed?" · datos actualizados":""),"okm");
+    if(changed){meta();const a=document.querySelector("nav button.active");if(a)showView(a.dataset.view);}
+  }catch(e){console.error(e);ghMsg("No se pudo leer GitHub: "+e.message,"err");}
+  finally{ghBusy=false;badge();}
+}
+async function ghPublish(){
+  const tok=getTok();if(!tok||!GH.owner)return;
+  if(!LOC&&!AG)return;
+  ghMsg("Publicando en GitHub…");
+  try{
+    const H={Authorization:"Bearer "+tok,Accept:"application/vnd.github+json"};
+    let sha;const g=await fetch(API()+`?ref=${GH.branch}&t=${Date.now()}`,{headers:H,cache:"no-store"});
+    if(g.ok)sha=(await g.json()).sha;else if(g.status===401)throw new Error("token inválido o vencido");
+    const body=JSON.stringify({pub:new Date().toISOString(),loc:slim(LOC),ag:slim(AG)});
+    const b64=btoa(unescape(encodeURIComponent(body)));
+    const r=await fetch(API(),{method:"PUT",headers:H,body:JSON.stringify({message:"Actualiza resumen: "+(AG?.file||LOC?.file||""),content:b64,branch:GH.branch,...(sha?{sha}:{})})});
+    if(!r.ok){const t=await r.json().catch(()=>({}));
+      throw new Error(r.status===401?"token inválido o vencido":r.status===403||r.status===404?"el token no tiene permiso de escritura en "+GH.owner+"/"+GH.repo:(t.message||r.status));}
+    ghMsg(`✓ Publicado en GitHub ${hhmm(new Date())} · La TV lo tomará en máximo ${GH.refreshMin} min.`,"okm");
+  }catch(e){console.error(e);ghMsg("No se pudo publicar: "+e.message,"err");}
+}
+// publica después de procesar (espera un momento por si se cargan los dos archivos seguidos)
+const _pf=processFile;
+let enProceso=0,pubPend=false;
+processFile=async(kind,file,extra)=>{enProceso++;clearTimeout(pubTimer);let ok=false;
+  try{ok=await _pf(kind,file,extra);}finally{enProceso--;}
+  badge();if(ok)pubPend=true;
+  if(pubPend&&getTok()&&enProceso===0){pubTimer=setTimeout(()=>{if(enProceso===0){pubPend=false;ghPublish();}},1500);}
+  return ok;};
+
+document.getElementById("btnTokSave").onclick=()=>{const v=document.getElementById("ghTok").value.trim();if(!v)return;
+  try{localStorage.setItem("cpp_tok",v);}catch(e){}document.getElementById("ghTok").value="";tokInfo();};
+document.getElementById("btnTokDel").onclick=()=>{try{localStorage.removeItem("cpp_tok");}catch(e){}tokInfo();};
+document.getElementById("btnPub").onclick=()=>{if(!getTok()){ghMsg("Primero guarda el token.","err");return;}ghPublish();};
+document.getElementById("btnGh").onclick=()=>ghRead();
+document.getElementById("ghRepo").textContent=GH.owner?`${GH.owner}/${GH.repo}`:"(se detecta al abrir desde GitHub Pages)";
+tokInfo();badge();
+if(GH.owner){ghRead();setInterval(ghRead,GH.refreshMin*60000);}
+else ghMsg("Abre la página desde GitHub Pages para publicar o leer datos. Mientras, puedes usarla con carga manual.");
+
+// ---- resumen
+const sortP=(a,b)=>a.localeCompare(b,undefined,{numeric:true});
+function pctCell(p){
+  const l=lvl(p),w=p==null?0:Math.min(p,1)*100;
+  return `<div class="pct"><span class="tag ${l}">${pctTxt(p)}</span><span class="bar"><i style="width:${w}%;background:${COL[l]}"></i></span></div>`;
+}
+function render(){
+  const box=document.getElementById("resumenBody");
+  if(!LOC||!AG){
+    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport"].filter(Boolean).join(" y ");
+    box.innerHTML=`<div class="card empty">Falta cargar ${falta}.<br><button class="btn" onclick="showView('carga')">Ir a carga de archivos</button></div>`;return;}
+  const ps=Object.keys(LOC.pasillos).filter(p=>/^A\d{2}$/.test(p)).sort(sortP);
+  let tc=0,tq=0,over=0;
+  const rows=ps.map(p=>{const c=LOC.pasillos[p].cap,q=AG.pasillos[p]?.q||0,pc=c?q/c:null;tc+=c;tq+=q;if(pc!=null&&pc>=1)over++;
+    return `<tr class="click" data-p="${p}"><td><b>${p}</b></td><td>${fmt(c)}</td><td>${fmt(q)}</td><td>${pctCell(pc)}</td></tr>`;}).join("");
+  box.innerHTML=`
+   <div class="kpis">
+     <div class="kpi"><div class="l">Capacidad total</div><div class="v">${fmt(tc)}</div></div>
+     <div class="kpi"><div class="l">LPNs (unidades)</div><div class="v">${fmt(tq)}</div></div>
+     <div class="kpi"><div class="l">Ocupación total</div><div class="v" style="color:${COL[lvl(tc?tq/tc:null)]}">${pctTxt(tc?tq/tc:null)}</div></div>
+     <div class="kpi"><div class="l">Pasillos ≥ 100%</div><div class="v" style="color:${over?COL.bad:COL.ok}">${over} / ${ps.length}</div></div>
+   </div>
+   <div class="card">
+     <div class="toolbar">
+       <input id="q" placeholder="Buscar pasillo…">
+       <span class="info">Haz clic en un pasillo para ver sus bahías · Aging: ${AG.file}</span>
+       <span class="legend"><span style="--c:var(--ok)">&lt; 70%</span><span style="--c:var(--warn)">70–80%</span><span style="--c:var(--bad)">&gt; 80%</span></span>
+     </div>
+     <table><thead><tr><th>Pasillo</th><th>Capacidad</th><th>LPNs</th><th>Capacidad al momento</th></tr></thead>
+       <tbody id="tb">${rows}</tbody>
+       <tfoot><tr><td>Total</td><td>${fmt(tc)}</td><td>${fmt(tq)}</td><td>${pctCell(tc?tq/tc:null)}</td></tr></tfoot></table>
+   </div>`;
+  document.getElementById("tb").onclick=e=>{const tr=e.target.closest("tr[data-p]");if(tr)openPasillo(tr.dataset.p);};
+  document.getElementById("q").oninput=e=>{const v=e.target.value.trim().toUpperCase();
+    document.querySelectorAll("#tb tr").forEach(tr=>tr.style.display=!v||tr.dataset.p.includes(v)?"":"none");};
+}
+
+// ---- detalle por bahía
+function openPasillo(p){
+  const L=LOC.pasillos[p],A=AG.pasillos[p]||{q:0,bahias:{}};
+  const list=Object.keys(L.bahias).map(b=>{const c=L.bahias[b],q=A.bahias[b]||0;return {b,c,q,p:c?q/c:null};});
+  const extra=Object.keys(A.bahias).filter(b=>!(b in L.bahias)).map(b=>({b,c:0,q:A.bahias[b],p:null}));
+  list.sort((x,y)=>(x.p??Infinity)-(y.p??Infinity)||sortP(x.b,y.b));
+  extra.sort((x,y)=>sortP(x.b,y.b));
+  const all=list.concat(extra);
+  const pc=L.cap?A.q/L.cap:null;
+  document.getElementById("mTitle").textContent="Pasillo "+p+" · Bahías";
+  document.getElementById("mKpis").innerHTML=`<span>Capacidad <b>${fmt(L.cap)}</b></span><span>LPNs <b>${fmt(A.q)}</b></span>
+    <span>Ocupación <b style="color:${COL[lvl(pc)]}">${pctTxt(pc)}</b></span><span>Bahías <b>${list.length}</b></span>
+    <span>Bahías ≥ 100% <b>${list.filter(x=>x.p!=null&&x.p>=1).length}</b></span>`;
+  document.getElementById("mTable").innerHTML=`<thead><tr><th>Bahía</th><th>Capacidad</th><th>LPNs</th><th>Capacidad al momento</th></tr></thead><tbody>${
+    all.map(x=>`<tr><td><b>${p}-${x.b}</b></td><td>${x.c?fmt(x.c):'<span class="na">—</span>'}</td><td>${fmt(x.q)}</td><td>${pctCell(x.p)}</td></tr>`).join("")}</tbody>`;
+  document.getElementById("mNote").textContent=extra.length?`Las últimas ${extra.length} bahía(s) tienen LPNs en el Aging pero no existen en LOCATIONS (sin capacidad registrada).`:"Ordenado de menor a mayor ocupación.";
+  document.getElementById("ov").classList.add("show");
+}
+const closeM=()=>document.getElementById("ov").classList.remove("show");
+document.getElementById("mClose").onclick=closeM;
+document.getElementById("ov").onclick=e=>{if(e.target.id==="ov")closeM();};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeM();});
+
+// ---- vista operativa
+let FILT=store.get("cpp_filt")||{ok:true,warn:true,bad:true};
+const GRUPOS=[{t:"SAVAGE",a:0,b:10,cols:1,c:"#2f7fd1",h:"#dcebfa",hb:"#b3d2f2"},{t:"FABLETICS",a:11,b:48,cols:3,c:"#111111",h:"#ececec",hb:"#c9c9c9"}];
+function renderOper(){
+  const box=document.getElementById("operBody");
+  if(!LOC||!AG){
+    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport"].filter(Boolean).join(" y ");
+    box.innerHTML=`<div class="card empty">Falta cargar ${falta}.<br><button class="btn" onclick="showView('carga')">Ir a carga de archivos</button></div>`;return;}
+  const all=Object.keys(LOC.pasillos).filter(p=>/^A\d{2}$/.test(p))
+    .map(p=>{const c=LOC.pasillos[p].cap,q=AG.pasillos[p]?.q||0,pc=c?q/c:null;return {p,n:+p.slice(1),pc,l:lvl(pc)};})
+    .sort((a,b)=>sortP(a.p,b.p));
+  const cnt={ok:0,warn:0,bad:0};all.forEach(x=>{if(cnt[x.l]!=null)cnt[x.l]++;});
+  const opt=[["ok","&lt; 70%"],["warn","70–80%"],["bad","&gt; 80%"]];
+  box.innerHTML=`<h1 class="otitle">Pasillos con espacios para LPN Putaway</h1>
+   <div style="text-align:center;margin:-8px 0 12px;color:var(--muted);font-size:15px">Actualizado: ${hhmm([LOC.at,AG.at].sort().pop())}</div>
+   <div class="card" style="margin-bottom:14px;padding:10px 16px">
+     <div class="toolbar" style="margin:0">
+       <div class="chk">${opt.map(([k,t])=>`<label><input type="checkbox" data-k="${k}" ${FILT[k]?"checked":""}><span class="sq" style="background:${COL[k]}"></span>${t} <span class="n">(${cnt[k]})</span></label>`).join("")}</div>
+       <span class="info" style="margin-left:auto">Ordenado de A00 a A48 · clic en un pasillo para ver sus bahías</span>
+     </div></div>
+   <div class="ogrid">${GRUPOS.map((g,gi)=>`<div class="opanel" style="border-color:${g.c}">
+       <h2 style="background:${g.c}">${g.t}<small id="oc${gi}"></small></h2>
+       <div class="ohead" style="background:${g.h};border-bottom-color:${g.hb}"><span>Pasillo</span><span style="flex:1;padding-left:12px">Capacidad al momento</span></div>
+       <div class="olist" id="ol${gi}"></div></div>`).join("")}</div>`;
+  const apply=()=>{
+    GRUPOS.forEach((g,gi)=>{
+      const items=all.filter(x=>x.n>=g.a&&x.n<=g.b), vis=items.filter(x=>FILT[x.l]);
+      const el=document.getElementById("ol"+gi);
+      const rows=Math.max(1,Math.ceil(vis.length/g.cols));
+      el.style.gridTemplateRows=`repeat(${rows},auto)`;
+      el.style.gridTemplateColumns=`repeat(${vis.length?g.cols:1},1fr)`;
+      el.innerHTML=vis.length?vis.map(x=>`<div class="orow" data-p="${x.p}"><span class="pn">${x.p}</span>${pctCell(x.pc)}</div>`).join("")
+        :`<div class="oempty">Sin pasillos con los filtros seleccionados.</div>`;
+      document.getElementById("oc"+gi).textContent=`A${String(g.a).padStart(2,"0")}–A${g.b} · ${vis.length} de ${items.length}`;
+    });
+  };
+  box.querySelectorAll(".chk input").forEach(i=>i.onchange=()=>{FILT[i.dataset.k]=i.checked;store.set("cpp_filt",FILT);apply();});
+  box.querySelectorAll(".olist").forEach(l=>l.onclick=e=>{const r=e.target.closest(".orow");if(r)openPasillo(r.dataset.p);});
+  apply();
+}
+
+render();
+</script>
+</body>
+</html>
