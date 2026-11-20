@@ -102,7 +102,7 @@
 <header>
   <div>
     <h1>Capacidad por Pasillo</h1>
-    <div class="sub">TIJ2 · LOCATIONS vs AgingLocationsReport</div>
+    <div class="sub">TIJ2 · LOCATIONS vs AgingLocationsReport / ItemsByLocation</div>
   </div>
   <span id="ghBadge" style="font-size:12px;opacity:.8;margin-left:auto"></span>
   <nav style="margin-left:0">
@@ -150,8 +150,8 @@
         <div class="meta" id="metaLoc"></div>
       </div>
       <div class="card up">
-        <h3>2 · AgingLocationsReport</h3>
-        <p class="d">Current Location y Quantity. El nombre del archivo debe comenzar con <b>AgingLocationsReport</b>.</p>
+        <h3>2 · AgingLocationsReport o ItemsByLocation</h3>
+        <p class="d">AgingLocationsReport: Current Location y Quantity · ItemsByLocation: Location y Units. El nombre del archivo debe comenzar con <b>AgingLocationsReport</b> o <b>ItemsByLocation</b>.</p>
         <div class="drop" id="dropAg"><b>Arrastra o haz clic para cargar</b><small>.xlsx · archivos grandes se leen por partes</small></div>
         <input type="file" id="fileAg" accept=".xlsx,.xlsm" hidden>
         <div class="prog" id="progAg"><i></i></div>
@@ -302,14 +302,20 @@ const XL = (() => {
   // Aging -> {A00:{q, bahias:{'10':2259}}}
   async function procAging(file,onProgress){
     let iq=-1,il=-1,hdr=false;const res={};let rows=0;
-    await eachRow(file,{prefer:"AgingLocationsReport",onProgress,onRow:(c)=>{
-      if(!hdr){iq=findCol(c,["Quantity"]);il=findCol(c,["Current Location"]);hdr=true;
-        if(iq<0||il<0) throw new Error('No se encontraron las columnas "Current Location" y "Quantity"');return;}
+    // AgingLocationsReport: Current Location + Quantity · ItemsByLocation: Location + Units
+    const ibl=/^itemsbylocation/i.test(file.name||"");
+    await eachRow(file,{prefer:ibl?"ItemsByLocation":"AgingLocationsReport",onProgress,onRow:(c)=>{
+      if(!hdr){hdr=true;
+        if(ibl){il=findCol(c,["Location"]);iq=findCol(c,["Units"]);
+          if(iq<0||il<0) throw new Error('No se encontraron las columnas "Location" y "Units" en ItemsByLocation');}
+        else{il=findCol(c,["Current Location"]);iq=findCol(c,["Quantity"]);
+          if(iq<0||il<0) throw new Error('No se encontraron las columnas "Current Location" y "Quantity"');}
+        return;}
       const loc=String(c[il]??"").trim();if(!loc)return;
       const p=loc.slice(0,3).toUpperCase(),b=loc.substr(4,2).toUpperCase();const q=+c[iq]||0;rows++;
       const o=res[p]||(res[p]={q:0,bahias:{}});o.q+=q;o.bahias[b]=(o.bahias[b]||0)+q;
     }});
-    if(!rows) throw new Error("El AgingLocationsReport no contiene filas de datos");
+    if(!rows) throw new Error("El reporte no contiene filas de datos");
     return {pasillos:res,rows};
   }
   return {procLocations,procAging};
@@ -334,13 +340,14 @@ function showView(v){document.querySelectorAll("nav button").forEach(x=>x.classL
 // ---- carga
 const KINDS={
   loc:{drop:"dropLoc",inp:"fileLoc",st:"stLoc",pr:"progLoc",prefix:"LOCATIONS",fn:XL.procLocations,key:"cpp_loc"},
-  ag:{drop:"dropAg",inp:"fileAg",st:"stAg",pr:"progAg",prefix:"AgingLocationsReport",fn:XL.procAging,key:"cpp_ag"}};
-const validName=(kind,name)=>name.toLowerCase().startsWith(KINDS[kind].prefix.toLowerCase())&&/\.xls[xm]$/i.test(name);
+  ag:{drop:"dropAg",inp:"fileAg",st:"stAg",pr:"progAg",prefix:["AgingLocationsReport","ItemsByLocation"],fn:XL.procAging,key:"cpp_ag"}};
+const prefixes=kind=>[].concat(KINDS[kind].prefix);
+const validName=(kind,name)=>prefixes(kind).some(x=>name.toLowerCase().startsWith(x.toLowerCase()))&&/\.xls[xm]$/i.test(name);
 // Procesa un archivo (cargado a mano o descargado de GitHub)
 let processFile=async function(kind,file,extra){
   const cfg=KINDS[kind],st=document.getElementById(cfg.st),pr=document.getElementById(cfg.pr),bar=pr.firstElementChild;
   st.className="status";
-  if(!validName(kind,file.name)){st.className="status err";st.textContent=`Archivo no válido: "${file.name}". El nombre debe comenzar con "${cfg.prefix}" y ser .xlsx`;return false;}
+  if(!validName(kind,file.name)){st.className="status err";st.textContent=`Archivo no válido: "${file.name}". El nombre debe comenzar con "${prefixes(kind).join('" o "')}" y ser .xlsx`;return false;}
   if(!window.DecompressionStream){st.className="status err";st.textContent="Este navegador no soporta la lectura. Usa Chrome o Edge actualizados.";return false;}
   pr.style.display="block";bar.style.width="0";
   st.textContent="Procesando "+file.name+"…";const t0=performance.now();
@@ -457,7 +464,7 @@ function pctCell(p){
 function render(){
   const box=document.getElementById("resumenBody");
   if(!LOC||!AG){
-    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport"].filter(Boolean).join(" y ");
+    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport / ItemsByLocation"].filter(Boolean).join(" y ");
     box.innerHTML=`<div class="card empty">Falta cargar ${falta}.<br><button class="btn" onclick="showView('carga')">Ir a carga de archivos</button></div>`;return;}
   const ps=Object.keys(LOC.pasillos).filter(p=>/^A\d{2}$/.test(p)).sort(sortP);
   let tc=0,tq=0,over=0;
@@ -473,7 +480,7 @@ function render(){
    <div class="card">
      <div class="toolbar">
        <input id="q" placeholder="Buscar pasillo…">
-       <span class="info">Haz clic en un pasillo para ver sus bahías · Aging: ${AG.file}</span>
+       <span class="info">Haz clic en un pasillo para ver sus bahías · Reporte: ${AG.file}</span>
        <span class="legend"><span style="--c:var(--ok)">&lt; 70%</span><span style="--c:var(--warn)">70–80%</span><span style="--c:var(--bad)">&gt; 80%</span></span>
      </div>
      <table><thead><tr><th>Pasillo</th><th>Capacidad</th><th>LPNs</th><th>Capacidad al momento</th></tr></thead>
@@ -500,7 +507,7 @@ function openPasillo(p){
     <span>Bahías ≥ 100% <b>${list.filter(x=>x.p!=null&&x.p>=1).length}</b></span>`;
   document.getElementById("mTable").innerHTML=`<thead><tr><th>Bahía</th><th>Capacidad</th><th>LPNs</th><th>Capacidad al momento</th></tr></thead><tbody>${
     all.map(x=>`<tr><td><b>${p}-${x.b}</b></td><td>${x.c?fmt(x.c):'<span class="na">—</span>'}</td><td>${fmt(x.q)}</td><td>${pctCell(x.p)}</td></tr>`).join("")}</tbody>`;
-  document.getElementById("mNote").textContent=extra.length?`Las últimas ${extra.length} bahía(s) tienen LPNs en el Aging pero no existen en LOCATIONS (sin capacidad registrada).`:"Ordenado de menor a mayor ocupación.";
+  document.getElementById("mNote").textContent=extra.length?`Las últimas ${extra.length} bahía(s) tienen LPNs en el reporte pero no existen en LOCATIONS (sin capacidad registrada).`:"Ordenado de menor a mayor ocupación.";
   document.getElementById("ov").classList.add("show");
 }
 const closeM=()=>document.getElementById("ov").classList.remove("show");
@@ -510,11 +517,11 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeM();});
 
 // ---- vista operativa
 let FILT=store.get("cpp_filt")||{ok:true,warn:true,bad:true};
-const GRUPOS=[{t:"SAVAGE",a:0,b:10,cols:1,c:"#2f7fd1",h:"#dcebfa",hb:"#b3d2f2"},{t:"FABLETICS",a:11,b:48,cols:3,c:"#111111",h:"#ececec",hb:"#c9c9c9"}];
+const GRUPOS=[{t:"SAVAGE",a:0,b:9,cols:1,c:"#2f7fd1",h:"#dcebfa",hb:"#b3d2f2"},{t:"FABLETICS",a:10,b:48,cols:3,c:"#111111",h:"#ececec",hb:"#c9c9c9"}];
 function renderOper(){
   const box=document.getElementById("operBody");
   if(!LOC||!AG){
-    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport"].filter(Boolean).join(" y ");
+    const falta=[!LOC&&"LOCATIONS",!AG&&"AgingLocationsReport / ItemsByLocation"].filter(Boolean).join(" y ");
     box.innerHTML=`<div class="card empty">Falta cargar ${falta}.<br><button class="btn" onclick="showView('carga')">Ir a carga de archivos</button></div>`;return;}
   const all=Object.keys(LOC.pasillos).filter(p=>/^A\d{2}$/.test(p))
     .map(p=>{const c=LOC.pasillos[p].cap,q=AG.pasillos[p]?.q||0,pc=c?q/c:null;return {p,n:+p.slice(1),pc,l:lvl(pc)};})
@@ -541,7 +548,7 @@ function renderOper(){
       el.style.gridTemplateColumns=`repeat(${vis.length?g.cols:1},1fr)`;
       el.innerHTML=vis.length?vis.map(x=>`<div class="orow" data-p="${x.p}"><span class="pn">${x.p}</span>${pctCell(x.pc)}</div>`).join("")
         :`<div class="oempty">Sin pasillos con los filtros seleccionados.</div>`;
-      document.getElementById("oc"+gi).textContent=`A${String(g.a).padStart(2,"0")}–A${g.b} · ${vis.length} de ${items.length}`;
+      document.getElementById("oc"+gi).textContent=`A${String(g.a).padStart(2,"0")}–A${String(g.b).padStart(2,"0")} · ${vis.length} de ${items.length}`;
     });
   };
   box.querySelectorAll(".chk input").forEach(i=>i.onchange=()=>{FILT[i.dataset.k]=i.checked;store.set("cpp_filt",FILT);apply();});
